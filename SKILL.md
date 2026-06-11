@@ -5,8 +5,8 @@ description: Generate or edit images with ChatGPT's gpt-image-2 directly from Cl
 
 # chatgpt-images — gpt-image-2 gen + edit from Claude
 
-Engine: the codex-oauth bridge **built with Yui**, delivered as a handoff (preserved verbatim at `references/handoff-original.py`)
-and decomposed here into modules. Auth is self-contained: cached OAuth tokens with
+Decomposed from the original standalone implementation (preserved verbatim at
+`references/handoff-original.py`). Auth is self-contained: cached OAuth tokens with
 built-in refresh at `~/.config/codex-oauth-image-handoff/tokens.json` — no homelab
 dependency at call time.
 

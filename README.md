@@ -4,10 +4,9 @@ Generate and edit images with **gpt-image-2** from the command line — or from 
 AI coding agent — using your **ChatGPT account's OAuth** (Plus/Pro/Codex
 entitlement). No OpenAI Platform API key.
 
-Born as a handoff script built with Yui (a Hermes agent) that solved the hard
-parts: the Codex device-code OAuth flow, token caching with auto-refresh, and
-the Responses-API `image_generation` tool shape for both generation and
-reference-faithful editing. Decomposed here into small modules with a thin CLI.
+Handles the hard parts end to end: the Codex device-code OAuth flow, token
+caching with auto-refresh, and the Responses-API `image_generation` tool shape
+for both generation and reference-faithful editing. Small modules, thin CLI.
 
 ## Why this exists
 gpt-image-2's superpower is **reference fidelity**: give it an image and it
