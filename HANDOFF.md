@@ -46,7 +46,8 @@ CLI: `python3 scripts/codex_images.py <command>` (only dependency: httpx)
 - HTTP 429 / quota → stop and surface; never loop retries.
 - Empty result ("no image_generation_call") → dry-run the payload, capture raw
   events, report findings.
-- Masked edits: BROKEN on this backend (black-blob output, tested) — avoid `--mask` entirely.
+- Masked edit returns `mask_degenerate:true` → retries exhausted on the flaky
+  backend; fall back to crop→edit→composite rather than burning more attempts.
 
 ## Cost discipline
 One verification image is fine; bulk experiments are not. When unsure whether a

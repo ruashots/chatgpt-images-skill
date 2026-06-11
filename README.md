@@ -68,12 +68,23 @@ output rather than a collage.
 
 ## Masked edits
 
-> ⚠️ **Currently broken on the ChatGPT/Codex OAuth backend** (tested 2026-06-11):
-> the transparent mask region is rendered as a solid black area in the output —
-> the backend treats mask alpha as content, the same way it mangles transparent
-> reference PNGs. The request shape and local validation below are correct and
-> kept for when the backend behaves; until then, describe the region verbally in
-> an unmasked edit or crop→edit→composite locally.
+> ⚠️ **This backend's masked path is unreliable** (debugged 2026-06-11). The
+> masked inpaint intermittently (~65-85% per attempt in testing) returns a black
+> blob in the masked region — the model's intent and the mask geometry are always
+> correct, but the backend's composite step fails. The skill **auto-detects** the
+> black-blob failure (requires Pillow) and **retries** up to `--mask-retries`
+> (default 3); the result JSON reports `mask_attempts` and, if still degenerate
+> after retries, `mask_degenerate: true`.
+>
+> Because the per-attempt failure rate is high, retry is best-effort. **For a
+> guaranteed surgical edit, use crop→edit→composite** — the unmasked edit path is
+> fully reliable:
+> ```bash
+> # 1. crop the region you want to change, 2. edit the crop (no mask), 3. paste back
+> python3 -c "from PIL import Image; Image.open('src.png').crop((x0,y0,x1,y1)).save('reg.png')"
+> python3 scripts/codex_images.py edit --image reg.png --prompt "make it red" --out reg2.png
+> python3 -c "from PIL import Image; b=Image.open('src.png'); b.paste(Image.open('reg2.png').resize((x1-x0,y1-y0)),(x0,y0)); b.save('out.png')"
+> ```
 ```bash
 python3 scripts/codex_images.py edit \
   --image source.png --mask mask.png \

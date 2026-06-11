@@ -128,3 +128,35 @@ def validate_edit_inputs(images: list[str], mask: str | None, *, strict: bool = 
             warnings.append(msg)
 
     return warnings
+
+
+def masked_fill_is_degenerate(image_b64: str, mask_path: str, *, black_threshold: float = 25.0):
+    """Detect the backend's intermittent black-blob failure on masked edits.
+
+    Maps the mask's transparent (editable) region onto the output by relative
+    position (output resolution differs from mask), samples mean luminance there,
+    and reports True if the fill came back near-black.
+
+    Returns True (degenerate), False (looks fine), or None (cannot tell —
+    Pillow not installed, or mask has no transparent region).
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    import base64, io
+    if Image.open(mask_path).convert("RGBA").getchannel("A").point(
+            lambda a: 255 if a < 128 else 0).getbbox() is None:
+        return None  # mask has no transparent (editable) region
+    out = Image.open(io.BytesIO(base64.b64decode(image_b64))).convert("RGB")
+    ow, oh = out.size
+    # Resize the editable map to the output and sample EXACTLY the edited pixels
+    # (the transparent shape), not its bounding box — a black ellipse fills only
+    # ~78% of its bbox, so bbox-averaging dilutes the failure above threshold.
+    editable = Image.open(mask_path).convert("RGBA").getchannel("A") \
+        .point(lambda a: 255 if a < 128 else 0).resize((ow, oh), Image.NEAREST)
+    sel = [(r, g, b) for (r, g, b), m in zip(out.getdata(), editable.getdata()) if m]
+    if not sel:
+        return None
+    lum = sum(0.299 * r + 0.587 * g + 0.114 * b for r, g, b in sel) / len(sel)
+    return lum < black_threshold

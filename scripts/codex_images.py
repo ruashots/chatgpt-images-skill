@@ -14,7 +14,7 @@ from codex_api import (ASPECT_TO_SIZE, IMAGE_MODEL, DEFAULT_CHAT_MODEL, OUTPUT_F
                        QUALITY_CHOICES, build_edit_payload, build_generate_payload,
                        decode_and_save, default_out_path, normalize_size, post_responses,
                        scrub_payload_for_print)
-from codex_validation import validate_edit_inputs
+from codex_validation import validate_edit_inputs, masked_fill_is_degenerate
 
 def validate_common(args: argparse.Namespace) -> None:
     if not args.prompt.strip():
@@ -38,12 +38,42 @@ def execute_image_mode(args: argparse.Namespace, mode: str) -> int:
         printable = scrub_payload_for_print(payload) if args.scrub_data_urls else payload
         print(json.dumps({"success": True, "dry_run": True, "mode": mode, "payload": printable}, ensure_ascii=False, indent=2))
         return 0
-    image_b64, response_id = post_responses(
-        payload,
-        timeout_seconds=args.timeout,
-        verbose=args.verbose,
-        raw_events_out=args.raw_events_out,
-    )
+    # Masked edits on the Codex OAuth backend intermittently (~50%) return a
+    # black blob in the masked region — model intent is correct, the backend
+    # composite fails. Auto-retry when we can detect it (needs Pillow).
+    masked = mode == "edit" and bool(args.mask)
+    black_intent = any(w in args.prompt.lower() for w in ("black", "negro", "dark", "oscur", "shadow", "silhou"))
+    max_attempts = (args.mask_retries + 1) if (masked and not black_intent) else 1
+    attempt = 0
+    image_b64 = response_id = None
+    still_degenerate = False
+    while attempt < max_attempts:
+        attempt += 1
+        image_b64, response_id = post_responses(
+            payload,
+            timeout_seconds=args.timeout,
+            verbose=args.verbose,
+            raw_events_out=args.raw_events_out,
+        )
+        if not masked:
+            break
+        degenerate = masked_fill_is_degenerate(image_b64, args.mask)
+        if degenerate is None:  # can't detect (no Pillow) — accept first result
+            if attempt == 1:
+                eprint("note: install Pillow to auto-detect the backend's intermittent "
+                       "black-mask failure; accepting result unchecked.")
+            break
+        if not degenerate:
+            still_degenerate = False
+            break
+        still_degenerate = True
+        if attempt >= max_attempts:
+            eprint(f"warning: masked region STILL degenerate-black after {attempt} attempts. "
+                   f"This backend's masked path is unreliable — use crop->edit->composite "
+                   f"on the unmasked path for a guaranteed result (see README).")
+            break
+        eprint(f"warning: masked region came back degenerate-black (backend flake); "
+               f"retrying ({attempt}/{max_attempts - 1})...")
     out_path = Path(args.out).expanduser() if args.out else default_out_path(mode, args.output_format)
     bytes_written = decode_and_save(image_b64, out_path)
     size, aspect = normalize_size(args)
@@ -64,6 +94,10 @@ def execute_image_mode(args: argparse.Namespace, mode: str) -> int:
     }
     if mode == "edit":
         result.update({"source_images": len(args.image), "masked": bool(args.mask)})
+        if masked:
+            result["mask_attempts"] = attempt
+            if still_degenerate:
+                result["mask_degenerate"] = True
     if args.print_json:
         print(json.dumps(result, ensure_ascii=False))
     else:
@@ -160,6 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_edit.add_argument("--mask", help="Optional mask path, URL, data URL, or file_id. Local masks are validated for dimensions/PNG alpha by default.")
     p_edit.add_argument("--allow-mask-warnings", action="store_true", help="Warn instead of failing when a local mask is non-PNG or lacks alpha.")
     p_edit.add_argument("--detail", choices=("low", "high", "auto"), help="Input image detail hint.")
+    p_edit.add_argument("--mask-retries", type=int, default=3, help="Auto-retry count when a masked edit returns the backend's intermittent black-blob fill (needs Pillow to detect; 0 to disable).")
     add_common_image_args(p_edit)
     p_edit.set_defaults(func=lambda args: execute_image_mode(args, "edit"))
     return parser
