@@ -67,6 +67,13 @@ preserved exactly and what may be reinterpreted, and ask for one coherent
 output rather than a collage.
 
 ## Masked edits
+
+> ⚠️ **Currently broken on the ChatGPT/Codex OAuth backend** (tested 2026-06-11):
+> the transparent mask region is rendered as a solid black area in the output —
+> the backend treats mask alpha as content, the same way it mangles transparent
+> reference PNGs. The request shape and local validation below are correct and
+> kept for when the backend behaves; until then, describe the region verbally in
+> an unmasked edit or crop→edit→composite locally.
 ```bash
 python3 scripts/codex_images.py edit \
   --image source.png --mask mask.png \

@@ -18,7 +18,7 @@ Commands: `login` · `check-auth [--refresh]` · `logout` · `generate` · `edit
 | text → image | `generate --prompt "..."` |
 | faithful edit of one image | `edit --image ref.png --prompt "..."` |
 | identity from A + pose/style/product from B | `edit --image A.png --image B.png` + numbered-jobs prompt |
-| change ONE region, protect the rest | `edit --image src.png --mask mask.png` |
+| change ONE region, protect the rest | ⚠️ `--mask` BROKEN (see gotchas) — use verbal region description or crop→edit→composite |
 | portrait/landscape output | `--aspect-ratio portrait\|landscape\|square` (or explicit `--size 1024x1536` etc. — explicit sizes WORK) |
 | cheap test | `--quality low`; final: `medium` (default) or `high` |
 | jpeg/webp + size control | `--output-format jpeg --output-compression 80` |
@@ -49,6 +49,11 @@ size, aspect_ratio, response_id (+ source_images, masked for edits). Exit 0/1/13
 ALWAYS view the output image before reporting success.
 
 ## Gotchas (tested 2026-06-11)
+- **MASKS ARE BROKEN on this backend path (tested):** the transparent mask
+  region renders as a solid black blob pasted on the output (same alpha→black
+  mangling as transparent references). Geometry is honored, content is not.
+  Do NOT use `--mask` until re-validated; for region edits, describe the region
+  verbally in an unmasked edit, or crop→edit→composite locally instead.
 - **Flatten transparent PNGs before sending as references** — alpha renders as
   black + speckle.
 - Edits hold identity ~90%+ but embellish small details (costume bits, gloss);
