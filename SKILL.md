@@ -1,56 +1,59 @@
 ---
 name: chatgpt-images
-description: Generate or edit images with ChatGPT's gpt-image-2 directly from Claude, via the operator's ChatGPT OAuth (no API key). Use when asked to generate/edit an image with ChatGPT/gpt-image quality, when an edit must stay faithful to a reference image (identity, faces, characters, products), for multi-reference composition ("X from image 1 in the pose/style of image 2"), or for instruction-following edits local models can't do. Standalone general-purpose tool; costs the operator's ChatGPT quota, so prefer local generation (ideogram4) when reference fidelity isn't needed.
+description: Generate or edit images with ChatGPT's gpt-image-2 directly from Claude, via the operator's ChatGPT OAuth (no API key). Use when asked to generate/edit an image with ChatGPT/gpt-image quality, when an edit must stay faithful to a reference image (identity, faces, characters, products), for multi-reference composition ("X from image 1 in the pose/style of image 2"), for masked region-edits (replace only one area, protect the rest), or for instruction-following edits local models can't do. Standalone general-purpose tool; costs the operator's ChatGPT quota, so prefer local generation (ideogram4) when reference fidelity isn't needed.
 ---
 
 # chatgpt-images — gpt-image-2 gen + edit from Claude
 
 Decomposed from the original standalone implementation (preserved verbatim at
-`references/handoff-original.py`). Auth is self-contained: cached OAuth tokens with
-built-in refresh at `~/.config/codex-oauth-image-handoff/tokens.json` — no homelab
-dependency at call time.
+`references/handoff-original.py`). Auth is self-contained: cached OAuth tokens
+with built-in 401→refresh→retry at `~/.config/codex-oauth-image-handoff/tokens.json`.
 
-All commands: `python3 ~/.claude/skills/chatgpt-images/scripts/codex_images.py <cmd>`
+CLI: `python3 ~/.claude/skills/chatgpt-images/scripts/codex_images.py <cmd>`
+Commands: `login` · `check-auth [--refresh]` · `logout` · `generate` · `edit`
 
-## Generate
-```bash
-... generate --prompt "a watercolor fox reading a newspaper" \
-    --aspect-ratio portrait --quality medium --out fox.png --print-json
-```
-`--aspect-ratio landscape|square|portrait` (→1536x1024 / 1024x1024 / 1024x1536) or
-explicit `--size`. Explicit sizes WORK in this implementation (gen and edit).
+## Capability map — pick the right shape
+| Need | Shape |
+|---|---|
+| text → image | `generate --prompt "..."` |
+| faithful edit of one image | `edit --image ref.png --prompt "..."` |
+| identity from A + pose/style/product from B | `edit --image A.png --image B.png` + numbered-jobs prompt |
+| change ONE region, protect the rest | `edit --image src.png --mask mask.png` |
+| portrait/landscape output | `--aspect-ratio portrait\|landscape\|square` (or explicit `--size 1024x1536` etc. — explicit sizes WORK) |
+| cheap test | `--quality low`; final: `medium` (default) or `high` |
+| jpeg/webp + size control | `--output-format jpeg --output-compression 80` |
+| inspect request without spending quota | `--dry-run` |
+| API acting weird | `--raw-events-out events.jsonl --verbose` (jsonl may embed image base64 — keep private) |
 
-## Edit / multi-reference
-```bash
-... edit --image ref.png --prompt "make it nighttime, keep everything else identical" --out night.png
-... edit --image identity.png --image pose.png \
-    --prompt "Image 1 is identity. Image 2 is pose. Redraw image-1 character in image-2 pose." --out combo.png
-```
-Reference prompting pattern (tested): number the images, give each a job
-(identity / pose / palette / product fidelity), say what must be preserved exactly.
-`--mask mask.png` for region edits — local masks validated (PNG+alpha, dims must
-match source) before spending quota; `--allow-mask-warnings` to override.
+## Multi-reference prompting (tested pattern)
+Number the images and give each a JOB: "Image 1 is identity. Image 2 is pose.
+Redraw the image-1 character in the image-2 pose. Preserve the mask design and
+colors exactly; the background may change." State preserved-exactly vs
+reinterpretable; ask for one coherent output, not a collage.
 
-## Auth
-- `check-auth` — verify cached token (add `--refresh` to force-renew)
-- `login` — device-code OAuth re-seed (only if the refresh chain ever dies)
-- `logout` — delete the token cache
-- Renewal is AUTOMATIC: 401 → refresh → retry, refresh token rotates in cache.
+## Mask workflow
+Mask = PNG with alpha; **transparent marks the EDITABLE region**, opaque is
+protected. Local masks are pre-flight validated free of charge: PNG + real
+alpha + dimensions exactly matching the first local source — failures stop
+before quota. Build masks with PIL (alpha 0 where edits go). Override
+validation only deliberately: `--allow-mask-warnings`.
 
-## Debugging
-`--dry-run` prints the exact payload (data URLs scrubbed) without spending quota.
-`--raw-events-out events.jsonl` records the SSE stream when the API acts weird.
-`--verbose` narrates event types.
+## Edit extras
+`--detail low|high|auto` input-image hint · `--instructions "..."` overrides the
+system prompt · `--image` accepts path / https URL / data URL / file_id ·
+`--chat-model` / `--image-model` overridable (defaults gpt-5.5 / gpt-image-2).
+
+## Result contract
+`--print-json` → one line: success, mode, image (abs path), bytes, quality,
+size, aspect_ratio, response_id (+ source_images, masked for edits). Exit 0/1/130.
+ALWAYS view the output image before reporting success.
 
 ## Gotchas (tested 2026-06-11)
-- **Flatten transparent PNGs before sending** — alpha renders as black + speckle.
-- Edits hold identity ~90%+ but embellish details (costume bits, gloss); chase
-  style-exactness with a local i2i pass after.
-- Quality `low` is fine for tests; default medium. It's the operator's ChatGPT quota —
-  identity-critical or instruction-heavy shots only; bulk/style work → ideogram4.
-
-## Layout
-`scripts/codex_auth.py` (tokens, refresh, device login) · `scripts/codex_validation.py`
-(stdlib image/mask inspection) · `scripts/codex_api.py` (payloads, SSE, save) ·
-`scripts/codex_images.py` (CLI). `references/handoff-original.py` = Yui's onefiler
-+ the one fix (httpx client lifecycle in post_responses) — canonical reference.
+- **Flatten transparent PNGs before sending as references** — alpha renders as
+  black + speckle.
+- Edits hold identity ~90%+ but embellish small details (costume bits, gloss);
+  chase style-exactness with a local i2i pass after (ideogram4).
+- Auth: 401 auto-refreshes; if `check-auth` itself fails, the operator must run
+  `login` (interactive device code) — not yours to fix.
+- Quota discipline: operator's ChatGPT account. Test at `--quality low`, never
+  blind-retry errors, route bulk/style work to ideogram4 (local, free).
