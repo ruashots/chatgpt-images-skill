@@ -26,7 +26,7 @@ explicit `--size`. Explicit sizes WORK in this implementation (gen and edit).
 ... edit --image identity.png --image pose.png \
     --prompt "Image 1 is identity. Image 2 is pose. Redraw image-1 character in image-2 pose." --out combo.png
 ```
-Reference prompting pattern (Yui's, tested): number the images, give each a job
+Reference prompting pattern (tested): number the images, give each a job
 (identity / pose / palette / product fidelity), say what must be preserved exactly.
 `--mask mask.png` for region edits — local masks validated (PNG+alpha, dims must
 match source) before spending quota; `--allow-mask-warnings` to override.
