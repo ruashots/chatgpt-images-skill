@@ -38,9 +38,11 @@ def execute_image_mode(args: argparse.Namespace, mode: str) -> int:
         printable = scrub_payload_for_print(payload) if args.scrub_data_urls else payload
         print(json.dumps({"success": True, "dry_run": True, "mode": mode, "payload": printable}, ensure_ascii=False, indent=2))
         return 0
-    # Masked edits on the Codex OAuth backend intermittently (~50%) return a
-    # black blob in the masked region — model intent is correct, the backend
-    # composite fails. Auto-retry when we can detect it (needs Pillow).
+    # Masked edits on the Codex OAuth backend intermittently (~65-85% per attempt,
+    # measured 2026-06-11) return a black blob in the masked region — model intent
+    # and mask geometry are correct, the backend composite fails. Best-effort
+    # auto-retry when we can detect it (needs Pillow); high base rate means even
+    # retries can exhaust — crop->edit->composite (unmasked) is the reliable path.
     masked = mode == "edit" and bool(args.mask)
     black_intent = any(w in args.prompt.lower() for w in ("black", "negro", "dark", "oscur", "shadow", "silhou"))
     max_attempts = (args.mask_retries + 1) if (masked and not black_intent) else 1
