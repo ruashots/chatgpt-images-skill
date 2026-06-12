@@ -26,6 +26,13 @@ Commands: `login` · `check-auth [--refresh]` · `logout` · `generate` · `edit
 | API acting weird | `--raw-events-out events.jsonl --verbose` (jsonl may embed image base64 — keep private) |
 
 ## Multi-reference prompting (tested pattern)
+**Tell the model HOW to interpret each reference, not just which pixels.** A flat
+graphic stays flat unless you say "render image 2 as real fabric, fitted to the 3D
+head" — tested: same inputs, "wearing the mask from image 2" gave a sticker overlay;
+adding "render as real lycra fabric with seams/sheen, conforming to his skull, not a
+flat overlay" gave a photorealistic worn mask. Each image gets: a JOB (identity /
+pose / object / material) AND, when it's a 2D source becoming 3D, an interpretation
+instruction (material, lighting, how it wraps/sits).
 Number the images and give each a JOB: "Image 1 is identity. Image 2 is pose.
 Redraw the image-1 character in the image-2 pose. Preserve the mask design and
 colors exactly; the background may change." State preserved-exactly vs
