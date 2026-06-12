@@ -1,3 +1,5 @@
+![chatgpt-images — generate & edit with gpt-image-2 from Claude](assets/banner.png)
+
 # chatgpt-images
 
 Generate and edit images with **gpt-image-2** from the command line — or from an
@@ -137,6 +139,26 @@ with `--print-json`), 130 interrupted.
   gloss); chase style-exactness with a local img2img pass afterward.
 - Quota is your ChatGPT account's — not unlimited, not free. Test at
   `--quality low`; don't loop retries on errors.
+
+## Benchmarks
+
+Wall-clock per call, measured 2026-06-11 (2 runs each, WSL client → ChatGPT/Codex
+OAuth backend). **Latency is dominated by backend queue/load, not the quality
+tier** — `high` was often faster than `low`. Treat these as rough ranges, not SLAs.
+
+| Operation | Avg | Observed range |
+|---|---|---|
+| `generate` (low) | ~54s | 49–58s |
+| `generate` (medium) | ~36s | 18–53s |
+| `generate` (high) | ~27s | 25–29s |
+| `edit` — 1 reference (medium) | ~63s | 61–65s |
+| `edit` — 2 references (medium) | ~222s | 189–255s |
+
+Takeaways: single-image gen/edit usually lands in **20–65s**. **Multi-reference
+edits are markedly heavier (~3–4 min)** — each extra reference image is uploaded as
+a base64 data URL and processed, and a large reference (e.g. an 8-view identity
+sheet) dominates the cost. Quality tier mainly affects detail/cost, not speed.
+Masked edits multiply by `mask_attempts` when the backend's black-blob flake triggers.
 
 ## Layout
 | file | role |
