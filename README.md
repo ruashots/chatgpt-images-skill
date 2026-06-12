@@ -14,8 +14,10 @@ region edits with local pre-flight validation, and stream-level debugging.
 ## Why
 gpt-image-2's superpower is **reference fidelity**: give it an image and it
 preserves identity (faces, characters, products) through aggressive edits —
-pose changes, scene swaps, multi-image composition. Local models generate
-cheaply; this covers the shots where faithfulness to a reference is the point.
+pose changes, scene swaps, multi-image composition. Local models give you speed, offline, and determinism; this covers the shots
+where faithfulness to a reference is the point. In practice, image gen via the
+ChatGPT plan consumes negligible plan usage — the real cost is latency, not
+allowance.
 
 ## Install
 Python 3.10+ and one dependency:
@@ -137,8 +139,11 @@ with `--print-json`), 130 interrupted.
   render as black with speckle artifacts.
 - Edits hold identity ~90%+ but tend to embellish small details (costume bits,
   gloss); chase style-exactness with a local img2img pass afterward.
-- Quota is your ChatGPT account's — not unlimited, not free. Test at
-  `--quality low`; don't loop retries on errors.
+- **Cost is latency, not plan usage.** A heavy session of ~30+ calls barely
+  dented the ChatGPT plan's usage meter, so there's no need to ration — generate
+  freely. Mind the clock instead (multi-ref edits ~3-4 min) and the masked-path
+  flake. (Observation, not billing internals — a monthly ceiling can't be ruled
+  out.)
 
 ## Benchmarks
 

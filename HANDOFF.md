@@ -1,9 +1,11 @@
 # chatgpt-images — agent handoff
 
 You are an agent with shell access. This tool generates/edits images via
-gpt-image-2 using the operator's ChatGPT OAuth. It SPENDS THE OPERATOR'S QUOTA —
-use it for reference-fidelity, masked-region, or instruction-heavy shots; route
-bulk/style work to local generators first.
+gpt-image-2 using the operator's ChatGPT OAuth. In practice it consumes
+negligible ChatGPT-plan usage (observed over a heavy day), so use it freely —
+the real costs are LATENCY (single ~30-60s, multi-ref ~3-4min) and occasional
+masked-path flakiness. Prefer a local generator only for speed, offline, or
+deterministic needs — not to save quota.
 
 CLI: `python3 scripts/codex_images.py <command>` (only dependency: httpx)
 
@@ -24,8 +26,8 @@ CLI: `python3 scripts/codex_images.py <command>` (only dependency: httpx)
    `--output-format png|jpeg|webp` (+ `--output-compression 0-100` for the
    latter two) · `--out path.png`.
 4. Always pass `--print-json` and parse the result line: `success`, `image`
-   (absolute path), `bytes`. On `success: false` read the error — never
-   blind-retry (quota).
+   (absolute path), `bytes`. On `success: false` read the error before retrying
+   (retries cost wall-clock, not meaningful plan usage).
 5. ALWAYS view the output image and judge it against the request before
    reporting success.
 
@@ -43,12 +45,13 @@ CLI: `python3 scripts/codex_images.py <command>` (only dependency: httpx)
 
 ## Failure modes
 - `check-auth` fails → operator runs `login`; stop.
-- HTTP 429 / quota → stop and surface; never loop retries.
+- HTTP 429 / rate-limit → back off and surface; loop-retrying wastes wall-clock, not plan quota.
 - Empty result ("no image_generation_call") → dry-run the payload, capture raw
   events, report findings.
 - Masked edit returns `mask_degenerate:true` → retries exhausted on the flaky
   backend; fall back to crop→edit→composite rather than burning more attempts.
 
-## Cost discipline
-One verification image is fine; bulk experiments are not. When unsure whether a
-shot needs gpt-image-2, it probably doesn't — local first.
+## Cost notes
+Plan usage is effectively negligible in practice — don't ration calls. Do mind
+LATENCY: multi-ref edits are ~3-4 min, so batch/parallelize and don't serialize
+needlessly. Still ALWAYS view each output and judge it before reporting success.

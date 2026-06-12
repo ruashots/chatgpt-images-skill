@@ -1,6 +1,6 @@
 ---
 name: chatgpt-images
-description: Generate or edit images with ChatGPT's gpt-image-2 directly from Claude, via the operator's ChatGPT OAuth (no API key). Use when asked to generate/edit an image with ChatGPT/gpt-image quality, when an edit must stay faithful to a reference image (identity, faces, characters, products), for multi-reference composition ("X from image 1 in the pose/style of image 2"), for masked region-edits (replace only one area, protect the rest), or for instruction-following edits local models can't do. Standalone general-purpose tool; costs the operator's ChatGPT quota, so prefer local generation (ideogram4) when reference fidelity isn't needed.
+description: Generate or edit images with ChatGPT's gpt-image-2 directly from Claude, via the operator's ChatGPT OAuth (no API key). Use when asked to generate/edit an image with ChatGPT/gpt-image quality, when an edit must stay faithful to a reference image (identity, faces, characters, products), for multi-reference composition ("X from image 1 in the pose/style of image 2"), for masked region-edits (replace only one area, protect the rest), or for instruction-following edits local models can't do. Standalone general-purpose tool; image gen via the ChatGPT plan consumes negligible plan usage in practice, so use it freely — pick local ideogram4 only when you want speed, offline, or deterministic output.
 ---
 
 # chatgpt-images — gpt-image-2 gen + edit from Claude
@@ -20,7 +20,7 @@ Commands: `login` · `check-auth [--refresh]` · `logout` · `generate` · `edit
 | identity from A + pose/style/product from B | `edit --image A.png --image B.png` + numbered-jobs prompt |
 | change ONE region, protect the rest | `--mask` (auto-retries the flaky backend; needs Pillow) — or crop→edit→composite on the reliable unmasked path for guaranteed results |
 | portrait/landscape output | `--aspect-ratio portrait\|landscape\|square` (or explicit `--size 1024x1536` etc. — explicit sizes WORK) |
-| cheap test | `--quality low`; final: `medium` (default) or `high` |
+| pick quality | `--quality low/medium/high` — tier sets detail, NOT speed (latency is backend-load roulette); default high freely |
 | jpeg/webp + size control | `--output-format jpeg --output-compression 80` |
 | inspect request without spending quota | `--dry-run` |
 | API acting weird | `--raw-events-out events.jsonl --verbose` (jsonl may embed image base64 — keep private) |
@@ -71,5 +71,10 @@ ALWAYS view the output image before reporting success.
   chase style-exactness with a local i2i pass after (ideogram4).
 - Auth: 401 auto-refreshes; if `check-auth` itself fails, the operator must run
   `login` (interactive device code) — not yours to fix.
-- Quota discipline: operator's ChatGPT account. Test at `--quality low`, never
-  blind-retry errors, route bulk/style work to ideogram4 (local, free).
+- Cost is LATENCY + flakiness, not plan usage. Observed (one heavy day, ~30+
+  calls): negligible dent in the ChatGPT plan's usage meter — use it freely; no
+  need to ration. The real costs: single gen/edit ~30-60s, multi-ref edits ~3-4
+  min, and the masked-path black-blob flake. Reach for local ideogram4 when you
+  want SPEED, OFFLINE, or DETERMINISTIC output — not to save quota.
+  (Caveat: based on account observation, not billing internals; a monthly
+  ceiling we haven't hit can't be ruled out.)
