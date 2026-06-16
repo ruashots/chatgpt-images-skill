@@ -69,8 +69,11 @@ ALWAYS view the output image before reporting success.
   black + speckle.
 - Edits hold identity ~90%+ but embellish small details (costume bits, gloss);
   chase style-exactness with a local i2i pass after (ideogram4).
-- Auth: 401 auto-refreshes; if `check-auth` itself fails, the operator must run
-  `login` (interactive device code) — not yours to fix.
+- Auth: 401 auto-refreshes; if `check-auth` itself fails, **drive the `login` yourself** —
+  don't make the operator run it. Run `login` in the **background** (it blocks on a
+  `Waiting for sign-in...` poll), read the flushed `Open: <url>` + `Enter code: <code>` from
+  its output, and hand the operator just the URL and code to authorize. They complete the
+  sign-in (their ChatGPT account); the background `login` then saves the token and you proceed.
 - Cost is LATENCY + flakiness, not plan usage. Observed (one heavy day, ~30+
   calls): negligible dent in the ChatGPT plan's usage meter — use it freely; no
   need to ration. The real costs: single gen/edit ~30-60s, multi-ref edits ~3-4
