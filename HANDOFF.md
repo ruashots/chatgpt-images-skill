@@ -10,8 +10,12 @@ deterministic needs — not to save quota.
 CLI: `python3 scripts/codex_images.py <command>` (only dependency: httpx)
 
 ## Contract
-1. Verify auth before first use: `check-auth`. If it fails, STOP — the operator
-   must run `login` (interactive device-code); not your call.
+1. Verify auth before first use: `check-auth`. If it fails, drive the device-code
+   `login` for the operator: run it **in the background** (it blocks on a
+   `Waiting for sign-in...` poll), read the emitted `Open: <url>` + `Enter code: <code>`
+   from its output, and relay both to the operator to authorize. Only the operator can
+   complete the sign-in (it's their ChatGPT account); the agent just relays the code.
+   The device-code prompts are flushed, so they appear immediately even while backgrounded.
 2. Pick the correct shape — under-using the tool wastes its capabilities:
    - `generate --prompt "..."` — text-to-image
    - `edit --image ref.png --prompt "..."` — faithful single-reference edit
@@ -44,7 +48,7 @@ CLI: `python3 scripts/codex_images.py <command>` (only dependency: httpx)
    base64, treat as private.
 
 ## Failure modes
-- `check-auth` fails → operator runs `login`; stop.
+- `check-auth` fails → drive `login` in the background, relay the URL + device code to the operator to authorize.
 - HTTP 429 / rate-limit → back off and surface; loop-retrying wastes wall-clock, not plan quota.
 - Empty result ("no image_generation_call") → dry-run the payload, capture raw
   events, report findings.

@@ -28,7 +28,7 @@ def utc_now_iso() -> str:
 
 
 def eprint(*parts: object) -> None:
-    print(*parts, file=sys.stderr)
+    print(*parts, file=sys.stderr, flush=True)
 
 
 def require_httpx():
@@ -184,10 +184,14 @@ def run_device_login(args: argparse.Namespace) -> int:
     if not user_code or not device_auth_id:
         raise AppError(f"Device-code response missing user_code/device_auth_id: {device_data}")
 
-    print("To continue:")
-    print(f"  1. Open: {issuer}/codex/device")
-    print(f"  2. Enter code: {user_code}")
-    print("Waiting for sign-in... Ctrl+C to cancel.")
+    # flush=True is required: stdout is block-buffered when piped (e.g. an agent runs
+    # `login` in the background to relay the code), and the "Waiting for sign-in..."
+    # poll loop below never returns, so without an explicit flush the device code stays
+    # stuck in the buffer and is invisible to whoever needs to enter it.
+    print("To continue:", flush=True)
+    print(f"  1. Open: {issuer}/codex/device", flush=True)
+    print(f"  2. Enter code: {user_code}", flush=True)
+    print("Waiting for sign-in... Ctrl+C to cancel.", flush=True)
 
     max_wait = int(args.timeout)
     start = time.monotonic()
